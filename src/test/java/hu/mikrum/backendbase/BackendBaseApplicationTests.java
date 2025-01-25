@@ -12,6 +12,7 @@ import org.springframework.test.context.testng.AbstractTransactionalTestNGSpring
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testng.annotations.AfterClass;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 public abstract class BackendBaseApplicationTests extends AbstractTransactionalTestNGSpringContextTests {
 
-    private static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>("postgres:15.3")
+    private static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>("postgres:16.4")
             .withDatabaseName("testdb")
             .withUsername("testuser")
             .withPassword("testpassword");
@@ -43,6 +44,11 @@ public abstract class BackendBaseApplicationTests extends AbstractTransactionalT
     protected MockMvc mockMvc;
 
     protected ObjectMapper objectMapper = new ObjectMapper();
+
+    @AfterClass(alwaysRun = true)
+    public void stopContainer() {
+        POSTGRES_CONTAINER.stop();
+    }
 
     protected MvcResult doGet(String url) throws Exception {
         return mockMvc.perform(get(url)
