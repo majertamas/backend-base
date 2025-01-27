@@ -12,7 +12,6 @@ import org.springframework.test.context.testng.AbstractTransactionalTestNGSpring
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testng.annotations.AfterClass;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -45,16 +44,19 @@ public abstract class BackendBaseApplicationTests extends AbstractTransactionalT
 
     protected ObjectMapper objectMapper = new ObjectMapper();
 
-    @AfterClass(alwaysRun = true)
-    public void stopContainer() {
-        POSTGRES_CONTAINER.stop();
-    }
-
     protected MvcResult doGet(String url) throws Exception {
         return mockMvc.perform(get(url)
                         .accept(MediaType.APPLICATION_JSON))
                 .andDo(print())
                 .andExpect(status().isOk())
+                .andReturn();
+    }
+
+    protected MvcResult doGet(String url, int statusCode) throws Exception {
+        return mockMvc.perform(get(url)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().is(statusCode))
                 .andReturn();
     }
 
