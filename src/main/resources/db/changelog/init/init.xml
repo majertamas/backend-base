@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.13.xsd">
+
+    <changeSet id="code_catalog_table" author="your_name">
+        <createTable tableName="code_catalog">
+            <column name="code_catalog_id" type="SERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code_catalog_key" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value1" type="TEXT"/>
+            <column name="value2" type="TEXT"/>
+            <column name="additional_info" type="TEXT"/>
+            <column name="description" type="TEXT"/>
+            <column name="order_of_display" type="INTEGER"/>
+            <column name="access_path" type="TEXT"/>
+            <column name="parent" type="INTEGER"/>
+            <column name="code_catalog_constraint" type="TEXT"/>
+            <column name="valid_from" type="TIMESTAMP"/>
+            <column name="valid_to" type="TIMESTAMP"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog"
+                baseColumnNames="parent"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_parent"/>
+    </changeSet>
+
+    <changeSet id="code_catalog_tags" author="your_name">
+        <createTable tableName="code_catalog_tags">
+            <column name="code_catalog_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tags" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_tags"
+                baseColumnNames="code_catalog_id"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_tags"/>
+    </changeSet>
+
+    <changeSet id="code_catalog_related_items" author="your_name">
+        <createTable tableName="code_catalog_related_items">
+            <column name="code_catalog_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="related_items" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_related_items"
+                baseColumnNames="code_catalog_id"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_related_items"/>
+    </changeSet>
+
+    <changeSet id="code_catalog_access_right_read" author="your_name">
+        <createTable tableName="code_catalog_access_right_read">
+            <column name="code_catalog_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="access_right_read" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_access_right_read"
+                baseColumnNames="code_catalog_id"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_access_read"/>
+    </changeSet>
+
+    <changeSet id="code_catalog_access_right_write" author="your_name">
+        <createTable tableName="code_catalog_access_right_write">
+            <column name="code_catalog_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="access_right_write" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_access_right_write"
+                baseColumnNames="code_catalog_id"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_access_write"/>
+    </changeSet>
+
+    <changeSet id="add_unique_constraint_to_code_catalog_access_path" author="your_name">
+        <addUniqueConstraint
+                tableName="code_catalog"
+                columnNames="access_path"
+                constraintName="unique_code_catalog_access_path"/>
+    </changeSet>
+
+    <changeSet id="code_catalog_lang" author="your_name">
+        <createTable tableName="code_catalog_lang">
+            <column name="code_catalog_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lang_code" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lang_value" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_lang"
+                baseColumnNames="code_catalog_id"
+                referencedTableName="code_catalog"
+                referencedColumnNames="code_catalog_id"
+                constraintName="fk_code_catalog_lang"/>
+
+        <addForeignKeyConstraint
+                baseTableName="code_catalog_lang"
+                baseColumnNames="lang_code"
+                referencedTableName="code_catalog"
+                referencedColumnNames="access_path"
+                constraintName="fk_code_catalog_lang_code_to_key"/>
+    </changeSet>
+
+</databaseChangeLog>
