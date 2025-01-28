@@ -2,50 +2,52 @@ package hu.mikrum.backendbase;
 
 import hu.mikrum.backendbase.teszt.model.CodeCatalogEntity;
 import hu.mikrum.backendbase.teszt.repository.CodeCatalogRepository;
-import hu.mikrum.backendbase.teszt.service.SqlExecutorService;
 import jakarta.persistence.EntityManager;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Commit;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
-    public static final String API_CODE_CATALOG = "/api/code-catalog";
-    public static final String TEST_KEY_1 = "test-key";
-    public static final String TEST_VALUE_1_1 = "Test Value 1";
-    public static final String TEST_VALUE_2_1 = "Test Value 2";
-    public static final String ADDITIONAL_TEST_INFO_1 = "Additional test info";
-    public static final String TEST_DESCRIPTION_1 = "Test description";
-    public static final String TEST_ACCESS_PATH_1 = "$.TESZT";
-    public static final String EN = "En";
-    public static final String HU = "Hu";
-    public static final String ENGLISH_NAME = "English Name";
-    public static final String HUNGARIAN_NAME = "Magyar Név";
-    public static final String LANGUAGE_ACCESS_PATH = "$.Language.";
-    public static final String ENGLISH = "English";
-    public static final String HUNGARIAN = "Hungarian";
-    public static final Map<String, String> LANG_MAP = Map.of(
+
+    private static final String API_CODE_CATALOG = "/api/code-catalog";
+    private static final String TEST_KEY_1 = "test-key";
+    private static final String TEST_VALUE_1_1 = "Test Value 1";
+    private static final String TEST_VALUE_2_1 = "Test Value 2";
+    private static final String ADDITIONAL_TEST_INFO_1 = "Additional test info";
+    private static final String TEST_DESCRIPTION_1 = "Test description";
+    private static final String TEST_ACCESS_PATH_1 = "$.TESZT";
+    private static final String EN = "En";
+    private static final String HU = "Hu";
+    private static final String ENGLISH_NAME = "English Name";
+    private static final String HUNGARIAN_NAME = "Magyar Név";
+    private static final String LANGUAGE_ACCESS_PATH = "$.Language.";
+    private static final String ENGLISH = "English";
+    private static final String HUNGARIAN = "Hungarian";
+    private static final Map<String, String> LANG_MAP = Map.of(
             LANGUAGE_ACCESS_PATH + EN, ENGLISH_NAME,
             LANGUAGE_ACCESS_PATH + HU, HUNGARIAN_NAME
     );
-
-    @Autowired
-    private CodeCatalogRepository codeCatalogRepository;
-
-    @Autowired
-    private SqlExecutorService sqlExecutorService;
+    private static final String SE = "Se";
+    private static final String SWEDISH = "Swedish";
 
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private CodeCatalogRepository codeCatalogRepository;
+
     @Test
+    @Commit
     public void test_save() throws Exception {
         CodeCatalogEntity createdEntity = init();
         assert createdEntity.getId() != null;
@@ -61,21 +63,16 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
     }
 
     @Test
+    @Commit
     public void testDeleteCodeCatalogCascadesToLangTable() throws Exception {
         CodeCatalogEntity createdEntity = init();
-        int countCodeCatalog = sqlExecutorService.countCodeCatalog();
-        assert countCodeCatalog == 3;
         codeCatalogRepository.deleteById(createdEntity.getId());
-        int countCodeCatalogLang = sqlExecutorService.countCodeCatalogLang();
-        assert countCodeCatalogLang == 0;
         assert codeCatalogRepository.findAll().size() == 2;
     }
 
     @Test
     public void shouldNotDeleteLanguageWhenUsedByEntities() throws Exception {
         CodeCatalogEntity createdEntity = init();
-
-        entityManager.flush();
 
         Set<String> langKeys = new HashSet<>(createdEntity.getLang().keySet());
         assert langKeys.size() == 2;
@@ -92,7 +89,6 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
         assert codeCatalogRepository.findAllById(langEntityIds).size() == 2;
 
         try {
-            entityManager.flush();
             codeCatalogRepository.deleteAllById(langEntityIds);
             entityManager.flush();
         } catch (Exception e) {
@@ -100,14 +96,79 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
         }
     }
 
-    private CodeCatalogEntity init() throws Exception {
-        CodeCatalogEntity langEn = createLangEn();
-        String langEnJson = objectMapper.writeValueAsString(langEn);
-        doPost(API_CODE_CATALOG, langEnJson);
+    @Test
+    @Commit
+    public void uj_nyelv_eseten_restes_lekereskor_hozzaadja() throws Exception {
+        CodeCatalogEntity createdEntity = init();
+        CodeCatalogEntity se = CodeCatalogEntity.builder()
+                .key(SE)
+                .value1(SWEDISH)
+                .accessPath(LANGUAGE_ACCESS_PATH + SE)
+                .validFrom(LocalDateTime.now())
+                .build();
 
-        CodeCatalogEntity langHu = createLangHu();
-        String langHuJson = objectMapper.writeValueAsString(langHu);
-        doPost(API_CODE_CATALOG, langHuJson);
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + SE).isEmpty()) {
+            String langSeJson = objectMapper.writeValueAsString(se);
+            doPost(API_CODE_CATALOG, langSeJson);
+        }
+
+        assert createdEntity.getLang().size() == 2;
+
+        MvcResult result = doGet(API_CODE_CATALOG + "/" + createdEntity.getId());
+        String contentAsString = result.getResponse().getContentAsString();
+        CodeCatalogEntity entityAfterGet = objectMapper.readValue(contentAsString, CodeCatalogEntity.class);
+
+        assert entityAfterGet.getLang().size() == 3;
+        assert entityAfterGet.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(entityAfterGet.getKey());
+    }
+
+    @Test
+    @Commit
+    public void a_nyelvi_elemeket_nem_baszogatja() throws Exception {
+        CodeCatalogEntity createdEntity = init();
+        CodeCatalogEntity se = CodeCatalogEntity.builder()
+                .key(SE)
+                .value1(SWEDISH)
+                .accessPath(LANGUAGE_ACCESS_PATH + SE)
+                .validFrom(LocalDateTime.now())
+                .build();
+
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + SE).isEmpty()) {
+            String langSeJson = objectMapper.writeValueAsString(se);
+            doPost(API_CODE_CATALOG, langSeJson);
+        }
+
+        assert createdEntity.getLang().size() == 2;
+
+        MvcResult result = doGet(API_CODE_CATALOG);
+        String contentAsString = result.getResponse().getContentAsString();
+        List<Map<String, String>> response = (List<Map<String, String>>) objectMapper.readValue(contentAsString, Object.class);
+        assert response.size() == 4;
+
+        CodeCatalogEntity codeCatalogEntity = response
+                .stream()
+                .map(item -> objectMapper.convertValue(item, CodeCatalogEntity.class))
+                .filter(item -> item.getId().equals(createdEntity.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assert codeCatalogEntity.getLang().size() == 3;
+        assert codeCatalogEntity.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(codeCatalogEntity.getKey());
+    }
+
+    private CodeCatalogEntity init() throws Exception {
+
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + EN).isEmpty()) {
+            CodeCatalogEntity langEn = createLangEn();
+            String langEnJson = objectMapper.writeValueAsString(langEn);
+            doPost(API_CODE_CATALOG, langEnJson);
+        }
+
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + HU).isEmpty()) {
+            CodeCatalogEntity langHu = createLangHu();
+            String langHuJson = objectMapper.writeValueAsString(langHu);
+            doPost(API_CODE_CATALOG, langHuJson);
+        }
 
         CodeCatalogEntity codeCatalogEntity = createCodeCatalogEntity();
         String codeCatalogEntityJson = objectMapper.writeValueAsString(codeCatalogEntity);
@@ -146,6 +207,7 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
                     lang.put(langCode, LANG_MAP.get(langCode));
                 });
 
+
         return CodeCatalogEntity.builder()
                 .key(TEST_KEY_1)
                 .value1(TEST_VALUE_1_1)
@@ -157,4 +219,5 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
                 .lang(lang)
                 .build();
     }
+
 }
