@@ -16,7 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
 public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
     public static final String API_CODE_CATALOG = "/api/code-catalog";
     public static final String TEST_KEY_1 = "test-key";
@@ -73,8 +72,10 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
     }
 
     @Test
-    public void aaa() throws Exception {
+    public void shouldNotDeleteLanguageWhenUsedByEntities() throws Exception {
         CodeCatalogEntity createdEntity = init();
+
+        entityManager.flush();
 
         Set<String> langKeys = new HashSet<>(createdEntity.getLang().keySet());
         assert langKeys.size() == 2;
@@ -90,8 +91,8 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
         assert codeCatalogRepository.findAll().size() == 3;
         assert codeCatalogRepository.findAllById(langEntityIds).size() == 2;
 
-
         try {
+            entityManager.flush();
             codeCatalogRepository.deleteAllById(langEntityIds);
             entityManager.flush();
         } catch (Exception e) {
@@ -144,7 +145,6 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
                     String langCode = codeCatalogEntity.getAccessPath();
                     lang.put(langCode, LANG_MAP.get(langCode));
                 });
-
 
         return CodeCatalogEntity.builder()
                 .key(TEST_KEY_1)
