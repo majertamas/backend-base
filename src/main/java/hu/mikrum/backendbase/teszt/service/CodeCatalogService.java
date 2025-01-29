@@ -29,35 +29,39 @@ public class CodeCatalogService {
         CodeCatalogEntity codeCatalogEntity = codeCatalogRepository
                 .findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
-        if (codeCatalogEntity == null) {
-            return null;
-        }
 
         if (codeCatalogEntity.getAccessPath().startsWith(LANGUAGE_ACCESS_PATH)) {
             return codeCatalogEntity;
         }
 
+        populateMissingLanguagesWithDefaultData(codeCatalogEntity);
+
+        return codeCatalogEntity;
+    }
+
+    private void populateMissingLanguagesWithDefaultData(CodeCatalogEntity codeCatalogEntity) {
         Set<String> entityLangKeys = codeCatalogEntity.getLang().keySet();
-        List<CodeCatalogEntity> langsInDb = codeCatalogRepository
+        List<CodeCatalogEntity> languagesInDb = codeCatalogRepository
                 .findAll()
                 .stream()
                 .filter(item -> item.getAccessPath().startsWith(LANGUAGE_ACCESS_PATH))
                 .toList();
 
-        for (CodeCatalogEntity langInDb : langsInDb) {
-            if (!entityLangKeys.contains(langInDb.getAccessPath())) {
-                codeCatalogEntity.getLang().put(langInDb.getAccessPath(), PREFIX_FOR_MISSING_LANG_VALUE + codeCatalogEntity.getKey());
+        for (CodeCatalogEntity languageInDb : languagesInDb) {
+            if (!entityLangKeys.contains(languageInDb.getAccessPath())) {
+                codeCatalogEntity.getLang().put(languageInDb.getAccessPath(), PREFIX_FOR_MISSING_LANG_VALUE + codeCatalogEntity.getKey());
             }
         }
-
-        return codeCatalogEntity;
     }
 
-    public void deleteItem(Integer id) {
-        codeCatalogRepository.deleteById(id);
-    }
-
+    @Transactional
     public CodeCatalogEntity updateItem(CodeCatalogEntity codeCatalogEntity) {
+        if (codeCatalogEntity.getId() == null) {
+            throw new IllegalArgumentException("Id not found");
+        }
+        if (codeCatalogRepository.findById(codeCatalogEntity.getId()).isEmpty()) {
+            throw new IllegalArgumentException("Item not found");
+        }
         return codeCatalogRepository.save(codeCatalogEntity);
     }
 

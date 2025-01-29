@@ -139,4 +139,14 @@
                 constraintName="fk_code_catalog_lang_code_to_key"/>
     </changeSet>
 
+    <changeSet id="add_check_constraint_code_catalog_lang_value" author="your_name">
+        <sql>
+        <![CDATA[
+            ALTER TABLE code_catalog_lang
+                ADD CONSTRAINT chk_code_catalog_lang_value_not_empty
+                    CHECK (lang_value <> '');
+            ]]>
+    </sql>
+    </changeSet>
+
 </databaseChangeLog>

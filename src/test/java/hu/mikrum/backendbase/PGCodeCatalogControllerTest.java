@@ -35,6 +35,7 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
     private static final String HU = "Hu";
     private static final String ENGLISH_NAME = "English Name";
     private static final String HUNGARIAN_NAME = "Magyar Név";
+    private static final String SWEDISH_NAME = "Svenskt Namn";
     private static final String ENGLISH = "English";
     private static final String HUNGARIAN = "Hungarian";
     private static final Map<String, String> LANG_MAP = Map.of(
@@ -160,6 +161,48 @@ public class PGCodeCatalogControllerTest extends PGBackendBaseApplicationTests {
 
         assert codeCatalogEntity.getLang().size() == 3;
         assert codeCatalogEntity.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(PREFIX_FOR_MISSING_LANG_VALUE + codeCatalogEntity.getKey());
+    }
+
+    @Test
+    @Transactional(NOT_SUPPORTED)
+    public void test_update() throws Exception {
+        CodeCatalogEntity createdEntity = init();
+        CodeCatalogEntity se = CodeCatalogEntity.builder()
+                .key(SE)
+                .value1(SWEDISH)
+                .accessPath(LANGUAGE_ACCESS_PATH + SE)
+                .validFrom(LocalDateTime.now())
+                .build();
+
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + SE).isEmpty()) {
+            String langSeJson = objectMapper.writeValueAsString(se);
+            doPost(API_CODE_CATALOG, langSeJson);
+        }
+
+        MvcResult result = doGet(API_CODE_CATALOG);
+        String contentAsString = result.getResponse().getContentAsString();
+        Object source = objectMapper.readValue(contentAsString, Object.class);
+        CodeCatalogEntity codeCatalogEntity = castService
+                .castObject(source, new TypeReference<List<Map<String, Object>>>() {
+                })
+                .stream()
+                .map(item -> objectMapper.convertValue(item, CodeCatalogEntity.class))
+                .filter(item -> item.getId().equals(createdEntity.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assert codeCatalogEntity.getLang().size() == 3;
+        assert codeCatalogEntity.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(PREFIX_FOR_MISSING_LANG_VALUE + codeCatalogEntity.getKey());
+
+        codeCatalogEntity.getLang().put(LANGUAGE_ACCESS_PATH + SE, SWEDISH_NAME);
+
+        MvcResult updateResult = doPost(API_CODE_CATALOG + "/update", objectMapper.writeValueAsString(codeCatalogEntity));
+        String updateResultAsString = updateResult.getResponse().getContentAsString();
+        CodeCatalogEntity updatedEntity = objectMapper.readValue(updateResultAsString, CodeCatalogEntity.class);
+
+        assert updatedEntity.getLang().size() == 3;
+        assert updatedEntity.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(SWEDISH_NAME);
+
     }
 
     private CodeCatalogEntity init() throws Exception {

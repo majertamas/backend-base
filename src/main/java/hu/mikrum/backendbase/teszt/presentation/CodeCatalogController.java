@@ -34,4 +34,9 @@ public class CodeCatalogController {
     public ResponseEntity<List<CodeCatalogEntity>> getAllItems() {
         return ResponseEntity.ok(codeCatalogService.getAllItems());
     }
+
+    @PostMapping("/update")
+    public ResponseEntity<CodeCatalogEntity> updateItem(@RequestBody CodeCatalogEntity codeCatalogEntity) {
+        return ResponseEntity.ok(codeCatalogService.updateItem(codeCatalogEntity));
+    }
 }
