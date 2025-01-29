@@ -1,21 +1,29 @@
 package hu.mikrum.backendbase;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import hu.mikrum.backendbase.teszt.model.CodeCatalogEntity;
 import hu.mikrum.backendbase.teszt.repository.CodeCatalogRepository;
-import jakarta.persistence.EntityManager;
-import org.hibernate.exception.ConstraintViolationException;
+import hu.mikrum.backendbase.teszt.service.CastService;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static hu.mikrum.backendbase.teszt.util.Util.LANGUAGE_ACCESS_PATH;
+import static hu.mikrum.backendbase.teszt.util.Util.PREFIX_FOR_MISSING_LANG_VALUE;
+import static jakarta.transaction.Transactional.TxType.NOT_SUPPORTED;
+
 public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
+
     private static final String API_CODE_CATALOG = "/api/code-catalog";
     private static final String TEST_KEY_1 = "test-key";
     private static final String TEST_VALUE_1_1 = "Test Value 1";
@@ -27,7 +35,6 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
     private static final String HU = "Hu";
     private static final String ENGLISH_NAME = "English Name";
     private static final String HUNGARIAN_NAME = "Magyar Név";
-    private static final String LANGUAGE_ACCESS_PATH = "$.Language.";
     private static final String ENGLISH = "English";
     private static final String HUNGARIAN = "Hungarian";
     private static final Map<String, String> LANG_MAP = Map.of(
@@ -36,14 +43,16 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
     );
     private static final String SE = "Se";
     private static final String SWEDISH = "Swedish";
+    private static final String SLASH = "/";
 
     @Autowired
-    private EntityManager entityManager;
+    private CastService castService;
 
     @Autowired
     private CodeCatalogRepository codeCatalogRepository;
 
     @Test
+    @Transactional(NOT_SUPPORTED)
     public void test_save() throws Exception {
         CodeCatalogEntity createdEntity = init();
         assert createdEntity.getId() != null;
@@ -59,6 +68,7 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
     }
 
     @Test
+    @Transactional(NOT_SUPPORTED)
     public void testDeleteCodeCatalogCascadesToLangTable() throws Exception {
         CodeCatalogEntity createdEntity = init();
         codeCatalogRepository.deleteById(createdEntity.getId());
@@ -66,6 +76,7 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
     }
 
     @Test
+    @Transactional(NOT_SUPPORTED)
     public void shouldNotDeleteLanguageWhenUsedByEntities() throws Exception {
         CodeCatalogEntity createdEntity = init();
 
@@ -85,14 +96,15 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
 
         try {
             codeCatalogRepository.deleteAllById(langEntityIds);
-            entityManager.flush();
         } catch (Exception e) {
-            assert e instanceof ConstraintViolationException;
+            assert e instanceof DataIntegrityViolationException;
         }
+        assert codeCatalogRepository.findAll().size() == 3;
     }
 
     @Test
-    public void lasdirgj() throws Exception {
+    @Transactional(NOT_SUPPORTED)
+    public void uj_nyelv_eseten_restes_lekereskor_hozzaadja() throws Exception {
         CodeCatalogEntity createdEntity = init();
         CodeCatalogEntity se = CodeCatalogEntity.builder()
                 .key(SE)
@@ -108,14 +120,46 @@ public class CodeCatalogControllerTest extends BackendBaseApplicationTests {
 
         assert createdEntity.getLang().size() == 2;
 
-        MvcResult result = doGet(API_CODE_CATALOG + "/" + createdEntity.getId());
+        MvcResult result = doGet(API_CODE_CATALOG + SLASH + createdEntity.getId());
         String contentAsString = result.getResponse().getContentAsString();
         CodeCatalogEntity entityAfterGet = objectMapper.readValue(contentAsString, CodeCatalogEntity.class);
 
         assert entityAfterGet.getLang().size() == 3;
-        assert entityAfterGet.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(entityAfterGet.getKey());
+        assert entityAfterGet.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(PREFIX_FOR_MISSING_LANG_VALUE + entityAfterGet.getKey());
+    }
 
+    @Test
+    @Transactional(NOT_SUPPORTED)
+    public void a_nyelvi_elemeket_nem_baszogatja() throws Exception {
+        CodeCatalogEntity createdEntity = init();
+        CodeCatalogEntity se = CodeCatalogEntity.builder()
+                .key(SE)
+                .value1(SWEDISH)
+                .accessPath(LANGUAGE_ACCESS_PATH + SE)
+                .validFrom(LocalDateTime.now())
+                .build();
 
+        if (codeCatalogRepository.findByAccessPath(LANGUAGE_ACCESS_PATH + SE).isEmpty()) {
+            String langSeJson = objectMapper.writeValueAsString(se);
+            doPost(API_CODE_CATALOG, langSeJson);
+        }
+
+        assert createdEntity.getLang().size() == 2;
+
+        MvcResult result = doGet(API_CODE_CATALOG);
+        String contentAsString = result.getResponse().getContentAsString();
+        Object source = objectMapper.readValue(contentAsString, Object.class);
+        CodeCatalogEntity codeCatalogEntity = castService
+                .castObject(source, new TypeReference<List<Map<String, Object>>>() {
+                })
+                .stream()
+                .map(item -> objectMapper.convertValue(item, CodeCatalogEntity.class))
+                .filter(item -> item.getId().equals(createdEntity.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assert codeCatalogEntity.getLang().size() == 3;
+        assert codeCatalogEntity.getLang().get(LANGUAGE_ACCESS_PATH + SE).equals(PREFIX_FOR_MISSING_LANG_VALUE + codeCatalogEntity.getKey());
     }
 
     private CodeCatalogEntity init() throws Exception {
